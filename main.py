@@ -2,6 +2,7 @@ from data_preprocessing import load_data, preprocess_data
 from vectorization import vectorize_text
 from recommendation import get_recommendations
 from utils import save_embeddings, load_embeddings
+from generate_response import generate_response  # Yeni modeli ve fonksiyonu ekledik
 import os
 
 def main():
@@ -29,3 +30,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+#from transformers import pipeline
+#model = pipeline(task = "text-generation",model="facebook/bart-large-cnn")
+#response = model("Netflix'te izlemek için bir film önerisi ver.", max_length=50)
+#print(response)

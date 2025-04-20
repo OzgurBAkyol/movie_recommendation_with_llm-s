@@ -1,33 +1,40 @@
-from sentence_transformers import SentenceTransformer, util
-import numpy as np
-from generate_response import generate_response  # LLM cevap üretimi için
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
 
-def get_recommendations(user_query, df, embeddings, top_n=5):
-    """
-    Kullanıcının sorgusuna göre embedding benzerliğini kullanarak önerilen filmleri alır.
-    Daha sonra bu önerileri bir dil modeline vererek kişisel ve sohbet havasında yanıt döndürür.
-    """
-    # Sorguyu embed et
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-    query_embedding = model.encode(user_query, convert_to_tensor=True)
+# Llama modelini yükleyin
+model_name = "facebook/bart-large-cnn"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
 
-    # Benzerlikleri hesapla
-    cos_scores = util.pytorch_cos_sim(query_embedding, embeddings)[0]
-    top_results = cos_scores.argsort(descending=True)[:top_n]
+# Cihaz seçimi (GPU var mı kontrol et)
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model.to(device)
 
-    # En benzer filmleri al
-    recommended = df.iloc[top_results]
+def get_recommendations(user_query, df, embeddings):
+    # Kullanıcı sorgusunu token'lara ayır
+    inputs = tokenizer(user_query, return_tensors="pt").to(device)
 
-    # Prompt oluştur
-    prompt = f"Kullanıcının film isteği: \"{user_query}\"\n"
-    prompt += "Aşağıdaki filmleri öneriyoruz:\n\n"
-    for idx, row in recommended.iterrows():
-        prompt += f"- {row['title']}: {row['description']}\n"
+    # Modelin çıktısını al
+    with torch.no_grad():
+        outputs = model(**inputs, labels=inputs['input_ids'])
+        logits = outputs.logits
 
-    prompt += "\nLütfen bu filmleri sohbet havasında, kişisel bir dille kullanıcıya öner.\n"
+    # Burada embedding'leri almak için modelin son katmanlarından çıkan logits'i kullanıyoruz
+    # Eğer daha derin bir embedding isterseniz, bir ara katmandan alabilirsiniz.
+    query_embedding = logits.mean(dim=1)  # Output'un ortalamasını alarak bir embedding elde ediyoruz.
 
-    # LLM ile cevap oluştur
-    conversational_output = generate_response(prompt)
+    # Cosine benzerliğini hesapla (query ve embeddings tensor'lerinin aynı cihazda olması gerekiyor)
+    cos_scores = torch.cosine_similarity(query_embedding, embeddings, dim=1)
 
-    return conversational_output
+    # En yüksek benzerlik skorlarına sahip filmleri seç
+    top_results = torch.topk(cos_scores, k=5)
 
+    # En yüksek skora sahip 5 öneriyi döndür
+    recommendations = []
+    for score, idx in zip(top_results[0], top_results[1]):
+        recommendations.append({
+            "title": df.iloc[idx]["title"],
+            "score": score.item()
+        })
+
+    return recommendations

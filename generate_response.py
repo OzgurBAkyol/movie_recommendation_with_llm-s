@@ -1,49 +1,35 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-import torch
 import os
 from dotenv import load_dotenv
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 # .env dosyasını yükle
 load_dotenv()
 
-# Token'ı .env dosyasından al
-token = os.getenv('HF_TOKEN')
-
-# Model ismi
-MODEL_NAME = "microsoft/phi-2"
-
-# Model ve tokenizer yükleniyor
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, token=token)
-model = AutoModelForCausalLM.from_pretrained(
-    MODEL_NAME,
-    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-    device_map="auto",  # otomatik olarak CPU/GPU seçimi yapar
-    use_auth_token=token  # token parametresi ile yetkilendirme yapılır
-)
-
-# Pipeline tanımı
-generator = pipeline(
-    "text-generation",
-    model=model,
-    tokenizer=tokenizer,
-)
+# Hugging Face token'ı .env dosyasından al
+hf_token = os.getenv("HF_TOKEN")
 
 def generate_response(prompt, max_tokens=300):
     """
-    Prompt'a göre dil modeliyle sohbet havasında cevap üretir.
+    Meta-Llama 3.1-8B-Instruct modelinden bir yanıt alır.
     """
-    response = generator(
-        prompt,
-        max_new_tokens=max_tokens,
-        do_sample=True,
-        top_k=50,
-        top_p=0.95,
-        temperature=0.8,
-        num_return_sequences=1
+    # Hugging Face modelini yükle
+    model_name = "facebook/bart-large-cnn"
+
+    # Tokenizer ve modeli yükle
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=hf_token)
+    model = AutoModelForCausalLM.from_pretrained(model_name, use_auth_token=hf_token)
+
+    # Pipeline oluştur
+    generator = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        device=0 if torch.cuda.is_available() else -1  # GPU var ise GPU'yu kullan, yoksa CPU'yu kullan
     )
 
-    # Çıktıdan prompt'u ayırıp sadece cevabı döndürüyoruz
-    generated_text = response[0]['generated_text']
-    answer = generated_text[len(prompt):].strip()
+    # Prompt'a göre metin üret
+    response = generator(prompt, max_length=max_tokens, num_return_sequences=1)
 
-    return answer
+    # Üretilen metni döndür
+    return response[0]['generated_text'].strip()
+
