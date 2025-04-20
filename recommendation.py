@@ -1,22 +1,33 @@
-from sklearn.metrics.pairwise import cosine_similarity
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
 import numpy as np
+from generate_response import generate_response  # LLM cevap üretimi için
 
-
-def get_recommendations(query, df, embeddings, top_n=5):
+def get_recommendations(user_query, df, embeddings, top_n=5):
     """
-    Kullanıcının sorgusuna göre en benzer önerileri döndürür.
+    Kullanıcının sorgusuna göre embedding benzerliğini kullanarak önerilen filmleri alır.
+    Daha sonra bu önerileri bir dil modeline vererek kişisel ve sohbet havasında yanıt döndürür.
     """
-    # Kullanıcının sorgusunu vektöre dönüştür
+    # Sorguyu embed et
     model = SentenceTransformer('all-MiniLM-L6-v2')
-    query_vector = model.encode([query])
+    query_embedding = model.encode(user_query, convert_to_tensor=True)
 
-    # Cosine benzerliğini hesapla
-    similarities = cosine_similarity(query_vector, embeddings)
+    # Benzerlikleri hesapla
+    cos_scores = util.pytorch_cos_sim(query_embedding, embeddings)[0]
+    top_results = cos_scores.argsort(descending=True)[:top_n]
 
-    # En yüksek benzerliklere sahip 'top_n' öğelerini seç
-    similar_indices = np.argsort(similarities[0])[::-1][:top_n]
+    # En benzer filmleri al
+    recommended = df.iloc[top_results]
 
-    # Sonuçları döndür
-    recommendations = df.iloc[similar_indices]
-    return recommendations[['title', 'rating', 'description']]
+    # Prompt oluştur
+    prompt = f"Kullanıcının film isteği: \"{user_query}\"\n"
+    prompt += "Aşağıdaki filmleri öneriyoruz:\n\n"
+    for idx, row in recommended.iterrows():
+        prompt += f"- {row['title']}: {row['description']}\n"
+
+    prompt += "\nLütfen bu filmleri sohbet havasında, kişisel bir dille kullanıcıya öner.\n"
+
+    # LLM ile cevap oluştur
+    conversational_output = generate_response(prompt)
+
+    return conversational_output
+
