@@ -1,17 +1,10 @@
 import pandas as pd
 
 def load_data(file_path):
-    """
-    CSV dosyasını yükler ve DataFrame'e dönüştürür.
-    """
     df = pd.read_csv(file_path)
     return df
 
 def preprocess_data(df):
-    """
-    Veriyi işlemek ve metinleri birleştirmek.
-    """
-    # Metin sütunlarını birleştirme (title, description, type vb.)
     df['text'] = (
             "Film Bilgisi: " + df['title'] + " " +
             "Tür: " + df['type'] + " " +
@@ -27,14 +20,7 @@ def preprocess_data(df):
     )
     return df
 
-# Dosya yolunu belirtiyoruz
 file_path = 'netflix_titles.csv'
-
-# Veriyi yükleme
 df = load_data(file_path)
-
-# Veriyi işleme
 df = preprocess_data(df)
-
-# İşlenmiş veriyi kontrol etme
 print(df.head())

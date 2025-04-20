@@ -1,40 +1,39 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+# recommendation.py
+
+from transformers import AutoTokenizer, AutoModel
 import torch
 
-# Llama modelini yükleyin
-model_name = "facebook/bart-large-cnn"
+model_name = "sentence-transformers/all-MiniLM-L6-v2"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
 
-# Cihaz seçimi (GPU var mı kontrol et)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model.to(device)
 
+
 def get_recommendations(user_query, df, embeddings):
-    # Kullanıcı sorgusunu token'lara ayır
-    inputs = tokenizer(user_query, return_tensors="pt").to(device)
-
-    # Modelin çıktısını al
+    inputs = tokenizer(user_query, return_tensors="pt", truncation=True, padding=True).to(device)
     with torch.no_grad():
-        outputs = model(**inputs, labels=inputs['input_ids'])
-        logits = outputs.logits
+        outputs = model(**inputs)
+        query_embedding = outputs.last_hidden_state.mean(dim=1)  # Cümle embedding'ini almak için mean pooling yapıyoruz
 
-    # Burada embedding'leri almak için modelin son katmanlarından çıkan logits'i kullanıyoruz
-    # Eğer daha derin bir embedding isterseniz, bir ara katmandan alabilirsiniz.
-    query_embedding = logits.mean(dim=1)  # Output'un ortalamasını alarak bir embedding elde ediyoruz.
-
-    # Cosine benzerliğini hesapla (query ve embeddings tensor'lerinin aynı cihazda olması gerekiyor)
+    embeddings = torch.tensor(embeddings).to(device)
     cos_scores = torch.cosine_similarity(query_embedding, embeddings, dim=1)
-
-    # En yüksek benzerlik skorlarına sahip filmleri seç
     top_results = torch.topk(cos_scores, k=5)
 
-    # En yüksek skora sahip 5 öneriyi döndür
     recommendations = []
     for score, idx in zip(top_results[0], top_results[1]):
+        idx = idx.item()  # Tensor'ü integer'a çevir
+        movie_title = df.iloc[idx]["title"]
+        movie_description = df.iloc[idx]["description"]  # Film açıklaması
         recommendations.append({
-            "title": df.iloc[idx]["title"],
-            "score": score.item()
+            "title": movie_title,
+            "score": score.item(),
+            "description": movie_description
         })
 
-    return recommendations
+    response = "🎬 Tavsiye Asistanı:\n\n"
+    for rec in recommendations:
+        response += f"• {rec['title']}: {rec['description']} (Benzerlik skoru: {rec['score']:.2f})\n\n"
+
+    return response
