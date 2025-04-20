@@ -6,7 +6,7 @@ from utils import save_embeddings, load_embeddings
 
 def main():
     # Veri yükleme ve işleme
-    df = load_data('netflix_data.csv')
+    df = load_data('netflix_titles.csv')
     df = preprocess_data(df)
 
     # Vektörleştirme işlemi (ilk çalıştırma için)
