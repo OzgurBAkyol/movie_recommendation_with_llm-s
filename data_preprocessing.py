@@ -23,5 +23,6 @@ def preprocess_data(df):
 file_path = 'netflix_titles.csv'
 df = load_data(file_path)
 df = preprocess_data(df)
+print(df.head())
 
 
