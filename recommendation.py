@@ -1,39 +1,47 @@
-# recommendation.py
-
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
 import torch
 
-model_name = "sentence-transformers/all-MiniLM-L6-v2"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
+embedding_model_name = "sentence-transformers/all-MiniLM-L6-v2"
+embedding_tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
+embedding_model = AutoModel.from_pretrained(embedding_model_name)
+
+generation_model_name = "microsoft/DialoGPT-medium"
+generation_tokenizer = AutoTokenizer.from_pretrained(generation_model_name)
+generation_model = AutoModelForCausalLM.from_pretrained(generation_model_name)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model.to(device)
+embedding_model.to(device)
+generation_model.to(device)
 
-
-def get_recommendations(user_query, df, embeddings):
-    inputs = tokenizer(user_query, return_tensors="pt", truncation=True, padding=True).to(device)
+def get_recommendations(user_query, df, embeddings, top_k=5):
+    inputs = embedding_tokenizer(user_query, return_tensors="pt", truncation=True, padding=True).to(device)
     with torch.no_grad():
-        outputs = model(**inputs)
-        query_embedding = outputs.last_hidden_state.mean(dim=1)  #mean pooling
+        outputs = embedding_model(**inputs)
+        query_embedding = outputs.last_hidden_state.mean(dim=1)  # mean pooling
 
-    embeddings = torch.tensor(embeddings).to(device)
-    cos_scores = torch.cosine_similarity(query_embedding, embeddings, dim=1)
-    top_results = torch.topk(cos_scores, k=5)
+    embeddings_tensor = torch.tensor(embeddings).to(device)
+    cos_scores = torch.cosine_similarity(query_embedding, embeddings_tensor, dim=1)
+    top_results = torch.topk(cos_scores, k=top_k)
 
     recommendations = []
-    for score, idx in zip(top_results[0], top_results[1]):
-        idx = idx.item() 
-        movie_title = df.iloc[idx]["title"]
-        movie_description = df.iloc[idx]["description"] 
-        recommendations.append({
-            "title": movie_title,
-            "score": score.item(),
-            "description": movie_description
-        })
+    for score, idx in zip(top_results.values, top_results.indices):
+        idx = idx.item()
+        title = df.iloc[idx]["title"]
+        desc = df.iloc[idx]["description"]
+        recommendations.append((title, desc, score.item()))
 
-    response = "🎬 Tavsiye Asistanı:\n\n"
-    for rec in recommendations:
-        response += f"• {rec['title']}: {rec['description']} (Benzerlik skoru: {rec['score']:.2f})\n\n"
+    joined_recommendations = "\n".join([f"{i+1}. {title}: {desc}" for i, (title, desc, _) in enumerate(recommendations)])
+    prompt = f"Kullanıcı şunu sordu: '{user_query}'. Buna karşılık aşağıdaki içerikleri öneriyorsun:\n{joined_recommendations}\n\nBu önerileri doğal ve sempatik bir dille açıkla."
 
-    return response
+    gen_inputs = generation_tokenizer(prompt, return_tensors="pt", truncation=True, padding=True).to(device)
+    with torch.no_grad():
+        generated_ids = generation_model.generate(
+            gen_inputs["input_ids"],
+            max_length=300,
+            num_return_sequences=1,
+            pad_token_id=generation_tokenizer.eos_token_id
+        )
+
+    generated_text = generation_tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+
+    return generated_text
