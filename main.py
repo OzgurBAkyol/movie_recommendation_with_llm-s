@@ -9,18 +9,16 @@ DATA_PATH = "netflix_titles.csv"
 
 def load_or_generate_embeddings(df, path=EMBEDDING_PATH):
     if os.path.exists(path):
-        print("🔁 Kayıtlı embedding dosyası bulundu, yükleniyor...")
         return load_embeddings(path)
-    print("🧠 Embedding'ler oluşturuluyor...")
     embeddings = vectorize_text(df['text'].tolist())
     save_embeddings(embeddings, path)
     return embeddings
 
 def run_pipeline():
-    print("📄 Veri yükleniyor...")
+    print(" Veri yükleniyor...")
     df = load_data(DATA_PATH)
 
-    print("🧼 Veri ön işleniyor...")
+    print(" Veri işleniyor...")
     df = preprocess_data(df)
 
     embeddings = load_or_generate_embeddings(df)
