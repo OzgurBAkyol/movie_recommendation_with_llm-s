@@ -15,7 +15,7 @@ def generate_response(prompt, max_tokens=300):
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        device=0 if torch.cuda.is_available() else -1  # GPU var ise GPU'yu kullan, yoksa CPU'yu kullan
+        device=0 if torch.cuda.is_available() else -1  
     )
 
     response = generator(prompt, max_length=max_tokens, num_return_sequences=1)

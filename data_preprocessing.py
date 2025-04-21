@@ -8,14 +8,14 @@ def preprocess_data(df):
     df['text'] = (
             "Film Bilgisi: " + df['title'] + " " +
             "Tür: " + df['type'] + " " +
-            "Yönetmen: " + df['director'].fillna('Unknown') + " " +  # Eksik değerler için 'Unknown' kullanıyoruz
-            "Oyuncular: " + df['cast'].fillna('Unknown') + " " +  # Eksik değerler için 'Unknown' kullanıyoruz
-            "Ülke: " + df['country'].fillna('Unknown') + " " +  # Eksik değerler için 'Unknown' kullanıyoruz
+            "Yönetmen: " + df['director'].fillna('Unknown') + " " +  
+            "Oyuncular: " + df['cast'].fillna('Unknown') + " " + 
+            "Ülke: " + df['country'].fillna('Unknown') + " " +  
             "Yayınlanma Tarihi: " + df['date_added'].fillna('Unknown') + " " +
             "Yıl: " + df['release_year'].astype(str) + " " +
-            "Rating: " + df['rating'].fillna('Unknown') + " " +  # Eksik değerler için 'Unknown' kullanıyoruz
-            "Süre: " + df['duration'].fillna('Unknown') + " " +  # Eksik değerler için 'Unknown' kullanıyoruz
-            "Kategori: " + df['listed_in'].fillna('Unknown') + " " +  # Eksik değerler için 'Unknown' kullanıyoruz
+            "Rating: " + df['rating'].fillna('Unknown') + " " +  
+            "Süre: " + df['duration'].fillna('Unknown') + " " + 
+            "Kategori: " + df['listed_in'].fillna('Unknown') + " " + 
             "Açıklama: " + df['description'].fillna('No description available')
     )
     return df

@@ -2,11 +2,10 @@ from data_preprocessing import load_data, preprocess_data
 from vectorization import vectorize_text
 from recommendation import get_recommendations
 from utils import save_embeddings, load_embeddings
-from generate_response import generate_response  # Yeni modeli ve fonksiyonu ekledik
+from generate_response import generate_response 
 import os
 
 def main():
-    # Veri yükleme ve işleme
     df = load_data('netflix_titles.csv')
     df = preprocess_data(df)
 
