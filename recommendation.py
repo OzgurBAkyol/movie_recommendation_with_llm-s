@@ -4,23 +4,29 @@ import json
 from datetime import datetime
 import os
 
+# Embedding modeli ve tokenizer
 embedding_model_name = "sentence-transformers/all-MiniLM-L6-v2"
 embedding_tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
 embedding_model = AutoModel.from_pretrained(embedding_model_name)
 
+# Cevap üretim modeli ve tokenizer
 generation_model_name = "microsoft/DialoGPT-medium"
 generation_tokenizer = AutoTokenizer.from_pretrained(generation_model_name)
 generation_model = AutoModelForCausalLM.from_pretrained(generation_model_name)
 
+# Pad token kontrolü
 if generation_tokenizer.pad_token is None:
     generation_tokenizer.pad_token = generation_tokenizer.eos_token
 
+# Cihaz seçimi
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 embedding_model.to(device)
 generation_model.to(device)
 
+# Log dosyası
 LOG_FILE = "user_query_logs.json"
 
+# Kullanıcı sorgularını loglama
 def log_user_query(query, recommendations, response_text):
     log_entry = {
         "timestamp": datetime.now().isoformat(),
@@ -39,6 +45,7 @@ def log_user_query(query, recommendations, response_text):
     with open(LOG_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
+# Sohbet geçmişini yükleme
 def load_chat_history(n=3):
     if not os.path.exists(LOG_FILE):
         return ""
@@ -49,6 +56,7 @@ def load_chat_history(n=3):
         history += f"Kullanıcı: {entry['query']}\nSistem: {entry['response']}\n"
     return history.strip()
 
+# Few-shot örnekleri
 FEW_SHOT_EXAMPLES = """
 Kullanıcı: Aksiyon ve bilim kurgu karışımı bir film arıyorum.
 Sistem: İşte tam sana göre içerikler:
@@ -62,18 +70,21 @@ Sistem: Elbette! Aşağıdaki içerikler tam senlik:
 Gülümseten bir aşk hikayesi arıyorsan, bu filmler birebir.
 """
 
-
+# Öneri sistemi
 def get_recommendations(user_query, df, embeddings, top_k=5):
+    # Kullanıcı sorgusunu embedding'e dönüştürme
     inputs = embedding_tokenizer(user_query, return_tensors="pt", truncation=True, padding=True)
     inputs = {key: value.to(device) for key, value in inputs.items()}
     with torch.no_grad():
         outputs = embedding_model(**inputs)
         query_embedding = outputs.last_hidden_state.mean(dim=1)
 
+    # Embedding'ler ile benzerlik hesaplama
     embeddings_tensor = torch.tensor(embeddings).to(device)
     cos_scores = torch.cosine_similarity(query_embedding, embeddings_tensor, dim=1)
     top_results = torch.topk(cos_scores, k=top_k)
 
+    # En iyi sonuçları toplama
     recommendations = []
     for score, idx in zip(top_results.values, top_results.indices):
         idx = idx.item()
@@ -82,16 +93,16 @@ def get_recommendations(user_query, df, embeddings, top_k=5):
         fake_link = f"https://netflix.com/watch/{idx}"
         recommendations.append((title, desc, score.item(), fake_link))
 
+    # Önerileri birleştirme
     joined_recommendations = "\n".join([
         f"{i+1}. {title}: {desc} (📺 {link})"
         for i, (title, desc, _, link) in enumerate(recommendations)
     ])
 
-    prompt = (
-        FEW_SHOT_EXAMPLES.strip() + "\n\n" +
-        f"Kullanıcı: {user_query}\nSistem: İşte önerilerim:\n{joined_recommendations}\n"
-    )
+    # Prompt oluşturma (sadece mevcut sorgu için)
+    prompt = f"Kullanıcı: {user_query}\nSistem: İşte önerilerim:\n{joined_recommendations}\n"
 
+    # Cevap üretimi
     gen_inputs = generation_tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=1024)
     gen_inputs = {key: value.to(device) for key, value in gen_inputs.items()}
     with torch.no_grad():
@@ -105,6 +116,8 @@ def get_recommendations(user_query, df, embeddings, top_k=5):
 
     response_text = generation_tokenizer.decode(generated_ids[0], skip_special_tokens=True)
 
+    # Kullanıcı sorgusunu loglama
     log_user_query(user_query, recommendations, response_text)
 
+    # Sadece kullanıcı sorgusu ve model cevabını döndürme
     return f"Kullanıcı: {user_query}\nSistem: {response_text}"

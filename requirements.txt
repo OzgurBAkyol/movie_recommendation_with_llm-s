@@ -1,3 +1,5 @@
 transformers
 langchain
 langchain-huggingface
+python-dotenv
+torch
