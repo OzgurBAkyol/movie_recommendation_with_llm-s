@@ -4,7 +4,6 @@ import json
 from datetime import datetime
 import os
 
-# === MODELLER === #
 embedding_model_name = "sentence-transformers/all-MiniLM-L6-v2"
 embedding_tokenizer = AutoTokenizer.from_pretrained(embedding_model_name)
 embedding_model = AutoModel.from_pretrained(embedding_model_name)
@@ -20,7 +19,6 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 embedding_model.to(device)
 generation_model.to(device)
 
-# === LOGGING === #
 LOG_FILE = "user_query_logs.json"
 
 def log_user_query(query, recommendations, response_text):
@@ -51,26 +49,21 @@ def load_chat_history(n=3):
         history += f"Kullanıcı: {entry['query']}\nSistem: {entry['response']}\n"
     return history.strip()
 
-# === FEW-SHOT PROMPT ÖRNEĞİ === #
 FEW_SHOT_EXAMPLES = """
 Kullanıcı: Aksiyon ve bilim kurgu karışımı bir film arıyorum.
 Sistem: İşte tam sana göre içerikler:
-1. The Matrix: Sanal gerçeklik dünyasında geçen, felsefi ve aksiyon dolu bir film. (📺 https://netflix.com/watch/0)
-2. Inception: Rüya içinde rüya konseptiyle bilinçaltında geçen bir görev. (📺 https://netflix.com/watch/1)
+1. The Matrix: Sanal gerçeklik dünyasında geçen, felsefi ve aksiyon dolu bir film. 
 Bu filmler zihin açıcı ve sürükleyici, keyifli seyirler!
 
 Kullanıcı: Romantik ama komik bir film önerir misin?
 Sistem: Elbette! Aşağıdaki içerikler tam senlik:
-1. Crazy Rich Asians: Lüks ve aşk dolu bir yolculuk. (📺 https://netflix.com/watch/2)
-2. The Proposal: Patron ve çalışan arasında sürprizlerle dolu bir evlilik planı. (📺 https://netflix.com/watch/3)
+1. Crazy Rich Asians: Lüks ve aşk dolu bir yolculuk. 
+2. The Proposal: Patron ve çalışan arasında sürprizlerle dolu bir evlilik planı. 
 Gülümseten bir aşk hikayesi arıyorsan, bu filmler birebir.
 """
 
-# === ANA FONKSİYON === #
-# === ANA FONKSİYON === #
-# === ANA FONKSİYON === #
+
 def get_recommendations(user_query, df, embeddings, top_k=5):
-    # Embed sorgu
     inputs = embedding_tokenizer(user_query, return_tensors="pt", truncation=True, padding=True)
     inputs = {key: value.to(device) for key, value in inputs.items()}
     with torch.no_grad():
