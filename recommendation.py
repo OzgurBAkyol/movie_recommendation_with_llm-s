@@ -15,7 +15,7 @@ def get_recommendations(user_query, df, embeddings):
     inputs = tokenizer(user_query, return_tensors="pt", truncation=True, padding=True).to(device)
     with torch.no_grad():
         outputs = model(**inputs)
-        query_embedding = outputs.last_hidden_state.mean(dim=1)  # Cümle embedding'ini almak için mean pooling yapıyoruz
+        query_embedding = outputs.last_hidden_state.mean(dim=1)  #mean pooling
 
     embeddings = torch.tensor(embeddings).to(device)
     cos_scores = torch.cosine_similarity(query_embedding, embeddings, dim=1)
@@ -23,9 +23,9 @@ def get_recommendations(user_query, df, embeddings):
 
     recommendations = []
     for score, idx in zip(top_results[0], top_results[1]):
-        idx = idx.item()  # Tensor'ü integer'a çevir
+        idx = idx.item() 
         movie_title = df.iloc[idx]["title"]
-        movie_description = df.iloc[idx]["description"]  # Film açıklaması
+        movie_description = df.iloc[idx]["description"] 
         recommendations.append({
             "title": movie_title,
             "score": score.item(),
