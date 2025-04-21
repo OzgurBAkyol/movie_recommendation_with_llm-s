@@ -68,6 +68,7 @@ Gülümseten bir aşk hikayesi arıyorsan, bu filmler birebir.
 
 # === ANA FONKSİYON === #
 # === ANA FONKSİYON === #
+# === ANA FONKSİYON === #
 def get_recommendations(user_query, df, embeddings, top_k=5):
     # Embed sorgu
     inputs = embedding_tokenizer(user_query, return_tensors="pt", truncation=True, padding=True)
@@ -76,12 +77,10 @@ def get_recommendations(user_query, df, embeddings, top_k=5):
         outputs = embedding_model(**inputs)
         query_embedding = outputs.last_hidden_state.mean(dim=1)
 
-    # Embed karşılaştırması
     embeddings_tensor = torch.tensor(embeddings).to(device)
     cos_scores = torch.cosine_similarity(query_embedding, embeddings_tensor, dim=1)
     top_results = torch.topk(cos_scores, k=top_k)
 
-    # Tavsiyeleri topla
     recommendations = []
     for score, idx in zip(top_results.values, top_results.indices):
         idx = idx.item()
@@ -90,28 +89,22 @@ def get_recommendations(user_query, df, embeddings, top_k=5):
         fake_link = f"https://netflix.com/watch/{idx}"
         recommendations.append((title, desc, score.item(), fake_link))
 
-    # Önerileri prompt'a hazırla
     joined_recommendations = "\n".join([
         f"{i+1}. {title}: {desc} (📺 {link})"
         for i, (title, desc, _, link) in enumerate(recommendations)
     ])
 
-    # Chat geçmişi + few-shot + kullanıcı girişi
-    chat_history = load_chat_history()
     prompt = (
         FEW_SHOT_EXAMPLES.strip() + "\n\n" +
-        chat_history + ("\n\n" if chat_history else "") +
         f"Kullanıcı: {user_query}\nSistem: İşte önerilerim:\n{joined_recommendations}\n"
-        "Bu önerileri kısa ve samimi şekilde özetle."
     )
 
-    # Yanıt üretimi
     gen_inputs = generation_tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=1024)
     gen_inputs = {key: value.to(device) for key, value in gen_inputs.items()}
     with torch.no_grad():
         generated_ids = generation_model.generate(
             gen_inputs["input_ids"],
-            max_new_tokens=50,  # Daha kısa yanıtlar üretmek için değeri 50'ye düşürdüm.
+            max_new_tokens=50,
             num_return_sequences=1,
             pad_token_id=generation_tokenizer.pad_token_id,
             attention_mask=gen_inputs["attention_mask"]
@@ -119,5 +112,6 @@ def get_recommendations(user_query, df, embeddings, top_k=5):
 
     response_text = generation_tokenizer.decode(generated_ids[0], skip_special_tokens=True)
 
-    # Yalnızca kullanıcı sorusu ve cevabı döndürülür
+    log_user_query(user_query, recommendations, response_text)
+
     return f"Kullanıcı: {user_query}\nSistem: {response_text}"
