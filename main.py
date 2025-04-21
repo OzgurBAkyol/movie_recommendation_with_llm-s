@@ -6,7 +6,6 @@ from generate_response import generate_response  # Yeni modeli ve fonksiyonu ekl
 import os
 
 def main():
-    # Veri yükleme ve işleme
     df = load_data('netflix_titles.csv')
     df = preprocess_data(df)
 
